@@ -114,15 +114,15 @@ public class GeneratorAdapter extends PluginAdapter{
             columnSQL.append(columnName).append(",");
             // 拼接SQL
             if (!introspectedColumn.isAutoIncrement()) {
-                saveColumnSelective.append("\n\t  <if test=\"item.").append(javaProperty).append(" != null\">").append("\n\t\t" + columnName).append(",\n\t  </if>");
-                saveValueSelective.append("\n\t  <if test=\"item.").append(javaProperty + " != null").append("\"> ").append("\n\t\t #{item.").append(javaProperty)
+                saveColumnSelective.append("\n\t  <if test=\"").append(javaProperty).append(" != null\">").append("\n\t\t" + columnName).append(",\n\t  </if>");
+                saveValueSelective.append("\n\t  <if test=\"").append(javaProperty + " != null").append("\"> ").append("\n\t\t #{").append(javaProperty)
                         .append(",jdbcType=").append(pkColumn.getJdbcTypeName()).append("},\n\t  </if>");
 
-                saveValue.append("#{item.").append(javaProperty).append(",jdbcType=").append(pkColumn.getJdbcTypeName()).append("},\n\t");
-                updateSelectiveSQL.append(" \n\t\t<if test=\"item.").append(javaProperty).append(" != null\">\n\t\t\t");
-                updateSelectiveSQL.append(columnName).append(" = #{item.").append(javaProperty)
+                saveValue.append("#{").append(javaProperty).append(",jdbcType=").append(pkColumn.getJdbcTypeName()).append("},\n\t");
+                updateSelectiveSQL.append(" \n\t\t<if test=\"").append(javaProperty).append(" != null\">\n\t\t\t");
+                updateSelectiveSQL.append(columnName).append(" = #{").append(javaProperty)
                         .append(",jdbcType=").append(pkColumn.getJdbcTypeName()).append("},\n\t\t</if>");
-                updateSQL.append(columnName).append(" = #{item.").append(javaProperty)
+                updateSQL.append(columnName).append(" = #{").append(javaProperty)
                         .append(",jdbcType=").append(pkColumn.getJdbcTypeName()).append("}, \n\t");
             }
         }
@@ -135,10 +135,10 @@ public class GeneratorAdapter extends PluginAdapter{
         saveValue.replace(saveValue.lastIndexOf(","), saveValue.lastIndexOf(",") + 1, "");
         saveValue.append(")");
 
-        updateSQL.append("where ").append(pkColumn.getActualColumnName()).append(" = #{item.")
+        updateSQL.append("where ").append(pkColumn.getActualColumnName()).append(" = #{")
                 .append(pkColumn.getJavaProperty()).append(",jdbcType=")
                 .append(pkColumn.getJdbcTypeName()).append("}");
-        updateSelectiveSQL.append("\twhere ").append(pkColumn.getActualColumnName()).append(" = #{item.")
+        updateSelectiveSQL.append("\twhere ").append(pkColumn.getActualColumnName()).append(" = #{")
                 .append(pkColumn.getJavaProperty()).append(",jdbcType=").append(pkColumn.getJdbcTypeName()).append("}");
 
         //创建基础字段名
@@ -264,7 +264,7 @@ public class GeneratorAdapter extends PluginAdapter{
         XmlElement save = new XmlElement("insert");
         save.addAttribute(new Attribute("id", id));
         if (null != pkColumn) {
-            save.addAttribute(new Attribute("keyProperty", "item." + pkColumn.getJavaProperty()));
+            save.addAttribute(new Attribute("keyProperty", "" + pkColumn.getJavaProperty()));
             save.addAttribute(new Attribute("useGeneratedKeys", "true"));
             save.addElement(new TextElement(saveColumn.toString() + saveValue.toString()));
         } else {
@@ -286,7 +286,7 @@ public class GeneratorAdapter extends PluginAdapter{
         XmlElement save = new XmlElement("insert");
         save.addAttribute(new Attribute("id", id));
         if (null != pkColumn) {
-            save.addAttribute(new Attribute("keyProperty", "item." + pkColumn.getJavaProperty()));
+            save.addAttribute(new Attribute("keyProperty", "" + pkColumn.getJavaProperty()));
             save.addAttribute(new Attribute("useGeneratedKeys", "true"));
             save.addElement(new TextElement(saveColumnSelective.toString() + saveValueSelective.toString()));
         } else {
