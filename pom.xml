@@ -6,7 +6,7 @@
 
     <groupId>com.zl</groupId>
     <artifactId>generator-extend</artifactId>
-    <version>1.0</version>
+    <version>1.0-RELEASE</version>
     <build>
         <plugins>
             <plugin>
@@ -25,6 +25,19 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>1.8</java.version>
     </properties>
+    <distributionManagement>
+        <repository>
+            <!--此id要与setting.xml里面server的id对应-->
+            <id>releases</id>
+            <name>releases Repository</name>
+            <url>http://nas.canstory.top:8081/repository/release/</url>
+        </repository>
+        <snapshotRepository>
+            <id>snapshots</id>
+            <name>snapshots</name>
+            <url>http://nas.canstory.top:8081/repository/snapshots/</url>
+        </snapshotRepository>
+    </distributionManagement>
     <dependencies>
         <!--mybatis-generator-->
         <dependency>
@@ -51,11 +64,7 @@
             <artifactId>commons-lang3</artifactId>
             <version>3.4</version>
         </dependency>
-        <dependency>
-            <groupId>com.zl.boot</groupId>
-            <artifactId>origin</artifactId>
-            <version>1.0-SNAPSHOT</version>
-        </dependency>
+
         <!--plugin-->
         <dependency>
             <groupId>org.apache.maven</groupId>
