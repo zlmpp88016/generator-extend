@@ -26,8 +26,10 @@ public class GeneratorAdapter extends PluginAdapter{
     private final String deleteByPrimaryKey = "deleteByPrimaryKey";
     private final String insert = "insert";
     private final String insertSelective = "insertSelective";
+    private final String batchInsertSelective = "batchInsertSelective";
     private final String selectByPrimaryKey = "selectByPrimaryKey";
     private final String updateByPrimaryKeySelective = "updateByPrimaryKeySelective";
+    private final String batchUpdateByPrimaryKeySelective = "batchUpdateByPrimaryKeySelective";
     private final String updateByPrimaryKey = "updateByPrimaryKey";
     private final String baseColumnList = "Base_Column_List";
     private Set<String> mappers = new HashSet<>();
@@ -43,6 +45,7 @@ public class GeneratorAdapter extends PluginAdapter{
 
 
     StringBuilder updateSelectiveSQL = new StringBuilder("");
+    StringBuilder batchUpdateSelectiveSQL = new StringBuilder("");
     StringBuilder updateSQL = new StringBuilder("");
 
     List<String> ignoreFields;
@@ -103,6 +106,7 @@ public class GeneratorAdapter extends PluginAdapter{
 
         // 拼装更新字段
         updateSelectiveSQL = new StringBuilder("update ").append(tableName).append(" \n\t<set>");
+        batchUpdateSelectiveSQL = new StringBuilder("\n\t<foreach collection=\"list\" item=\"item\" separator=\";\">\n\tupdate ").append(tableName).append(" \n\t\t<set>");
         updateSQL = new StringBuilder("update ").append(tableName).append("\n\t set ");
         // 数据库字段名
         String columnName = null;
@@ -124,37 +128,46 @@ public class GeneratorAdapter extends PluginAdapter{
                 batchSaveColumnSelective.append("\n\t\t  <if test=\"item.").append(javaProperty).append(" != null\">").append("\n\t\t\t" + columnName).append(",\n\t\t  </if>");
 
                 saveValueSelective.append("\n\t  <if test=\"").append(javaProperty + " != null").append("\"> ").append("\n\t\t #{").append(javaProperty)
-                        .append(",jdbcType=").append(pkColumn.getJdbcTypeName()).append("},\n\t  </if>");
+                        .append(",jdbcType=").append(introspectedColumn.getJdbcTypeName()).append("},\n\t  </if>");
                 batchSaveValueSelective.append("\n\t\t  <if test=\"item.").append(javaProperty + " != null").append("\"> ").append("\n\t\t\t #{item.").append(javaProperty)
-                        .append(",jdbcType=").append(pkColumn.getJdbcTypeName()).append("},\n\t\t  </if>");
+                        .append(",jdbcType=").append(introspectedColumn.getJdbcTypeName()).append("},\n\t\t  </if>");
 
                 saveValue.append("#{").append(javaProperty).append(",jdbcType=").append(pkColumn.getJdbcTypeName()).append("},\n\t");
+
                 updateSelectiveSQL.append(" \n\t\t<if test=\"").append(javaProperty).append(" != null\">\n\t\t\t");
                 updateSelectiveSQL.append(columnName).append(" = #{").append(javaProperty)
-                        .append(",jdbcType=").append(pkColumn.getJdbcTypeName()).append("},\n\t\t</if>");
+                        .append(",jdbcType=").append(introspectedColumn.getJdbcTypeName()).append("},\n\t\t</if>");
+
+                batchUpdateSelectiveSQL.append(" \n\t\t\t<if test=\"item.").append(javaProperty).append(" != null\">\n\t\t\t");
+                batchUpdateSelectiveSQL.append(columnName).append(" = #{item.").append(javaProperty)
+                        .append(",jdbcType=").append(introspectedColumn.getJdbcTypeName()).append("},\n\t\t\t</if>");
                 updateSQL.append(columnName).append(" = #{").append(javaProperty)
-                        .append(",jdbcType=").append(pkColumn.getJdbcTypeName()).append("}, \n\t");
+                        .append(",jdbcType=").append(introspectedColumn.getJdbcTypeName()).append("}, \n\t");
             }
         }
 
         updateSelectiveSQL.append("\n\t</set>\n\t");
+        batchUpdateSelectiveSQL.append("\n\t\t</set>\n\t\t");
 
         saveColumnSelective.append("\n\t</trim>\n\t");
         batchSaveColumnSelective.append("\n\t\t</trim>\n\t");
 
         saveValueSelective.append("\n\t</trim>");
-        batchSaveValueSelective.append("\n\t\t</trim>").append("</foreach>\n\t");
+        batchSaveValueSelective.append("\n\t\t</trim>").append("\n\t</foreach>\n\t");
 
         String columns = columnSQL.substring(0, columnSQL.length() - 1);
         saveColumn = saveColumn.append("insert into ").append(tableName).append(" ( ").append(columns).append(" ) \n\t");
         saveValue.replace(saveValue.lastIndexOf(","), saveValue.lastIndexOf(",") + 1, "");
         saveValue.append(")");
 
+        updateSQL.replace(updateSQL.lastIndexOf(","),updateSQL.lastIndexOf(",")+1,"");
         updateSQL.append("where ").append(pkColumn.getActualColumnName()).append(" = #{")
                 .append(pkColumn.getJavaProperty()).append(",jdbcType=")
                 .append(pkColumn.getJdbcTypeName()).append("}");
         updateSelectiveSQL.append("\twhere ").append(pkColumn.getActualColumnName()).append(" = #{")
                 .append(pkColumn.getJavaProperty()).append(",jdbcType=").append(pkColumn.getJdbcTypeName()).append("}");
+        batchUpdateSelectiveSQL.append("\twhere ").append(pkColumn.getActualColumnName()).append(" = #{item.")
+                .append(pkColumn.getJavaProperty()).append(",jdbcType=").append(pkColumn.getJdbcTypeName()).append("}\n\t</foreach>");
 
         //创建基础字段名
         rootElement.addElement(createSql(baseColumnList, columns));
@@ -164,10 +177,14 @@ public class GeneratorAdapter extends PluginAdapter{
         rootElement.addElement(createSave(insert, pkColumn));
         //创建insertSelectvice方法
         rootElement.addElement(createSaveSelective(insertSelective, pkColumn));
+        //创建batchInsertSelectvice方法
+        rootElement.addElement(createBatchSaveSelective(batchInsertSelective, pkColumn));
         //创建updateByPrimaryKey方法
         rootElement.addElement(createUpdate(updateByPrimaryKey));
         //创建updateByPrimaryKeySelective
         rootElement.addElement(createUpdateByPrimaryKeySelective(updateByPrimaryKeySelective));
+        //创建batchUpdateByPrimaryKeySelective
+        rootElement.addElement(createBatchUpdateByPrimaryKeySelective(batchUpdateByPrimaryKeySelective));
         return super.sqlMapDocumentGenerated(document, introspectedTable);
     }
 
@@ -359,11 +376,19 @@ public class GeneratorAdapter extends PluginAdapter{
     private XmlElement createUpdateByPrimaryKeySelective(String id) {
         XmlElement update = new XmlElement("update");
         update.addAttribute(new Attribute("id", id));
-        if ("update".equals(id)) {
-            update.addElement(new TextElement(saveColumn.append("\t) values").toString().replaceFirst(",", "")));
-        } else {
-            update.addElement(new TextElement(updateSelectiveSQL.toString()));
-        }
+        update.addElement(new TextElement(updateSelectiveSQL.toString()));
+        return update;
+    }
+    /**
+     * 批量更新
+     *
+     * @param id
+     * @return
+     */
+    private XmlElement createBatchUpdateByPrimaryKeySelective(String id) {
+        XmlElement update = new XmlElement("update");
+        update.addAttribute(new Attribute("id", id));
+        update.addElement(new TextElement(batchUpdateSelectiveSQL.toString()));
         return update;
     }
 
