@@ -33,8 +33,11 @@ public class GeneratorAdapter extends PluginAdapter{
     private Set<String> mappers = new HashSet<>();
     // 要保存的值
     StringBuilder saveValueSelective = new StringBuilder("<trim prefix=\"values (\" suffix=\")\" suffixOverrides=\",\" > ");
+    StringBuilder batchSaveValueSelective = new StringBuilder("<trim prefix=\"values (\" suffix=\")\" suffixOverrides=\",\" > ");
     // 要插入的字段(排除自增主键)
     StringBuilder saveColumnSelective = new StringBuilder("");
+    StringBuilder batchSaveColumnSelective =new StringBuilder("");
+
     StringBuilder saveColumn = new StringBuilder("");
     StringBuilder saveValue = new StringBuilder("");
 
@@ -106,6 +109,8 @@ public class GeneratorAdapter extends PluginAdapter{
         // java字段名
         String javaProperty = null;
         saveColumnSelective = saveColumnSelective.append("insert into ").append(tableName).append("\n\t<trim prefix=\"(\" suffix=\")\" suffixOverrides=\",\" >");
+        batchSaveColumnSelective = batchSaveColumnSelective.append("\n\t<foreach collection=\"list\" item=\"item\" separator=\";\">\n\t")
+                .append("\tinsert into ").append(tableName).append("\n\t\t<trim prefix=\"(\" suffix=\")\" suffixOverrides=\",\" >");
 
         saveValue.append(" values \n\t(");
         for (IntrospectedColumn introspectedColumn : introspectedTable.getAllColumns()) {
@@ -115,31 +120,40 @@ public class GeneratorAdapter extends PluginAdapter{
             columnSQL.append(columnName).append(",");
             // 拼接SQL
             if (!introspectedColumn.isAutoIncrement()) {
-                saveColumnSelective.append("\n\t  <if test=\"item.").append(javaProperty).append(" != null\">").append("\n\t\t" + columnName).append(",\n\t  </if>");
-                saveValueSelective.append("\n\t  <if test=\"item.").append(javaProperty + " != null").append("\"> ").append("\n\t\t #{item.").append(javaProperty)
-                        .append(",jdbcType=").append(pkColumn.getJdbcTypeName()).append("},\n\t  </if>");
+                saveColumnSelective.append("\n\t  <if test=\"").append(javaProperty).append(" != null\">").append("\n\t\t" + columnName).append(",\n\t  </if>");
+                batchSaveColumnSelective.append("\n\t\t  <if test=\"item.").append(javaProperty).append(" != null\">").append("\n\t\t\t" + columnName).append(",\n\t\t  </if>");
 
-                saveValue.append("#{item.").append(javaProperty).append(",jdbcType=").append(pkColumn.getJdbcTypeName()).append("},\n\t");
-                updateSelectiveSQL.append(" \n\t\t<if test=\"item.").append(javaProperty).append(" != null\">\n\t\t\t");
-                updateSelectiveSQL.append(columnName).append(" = #{item.").append(javaProperty)
+                saveValueSelective.append("\n\t  <if test=\"").append(javaProperty + " != null").append("\"> ").append("\n\t\t #{").append(javaProperty)
+                        .append(",jdbcType=").append(pkColumn.getJdbcTypeName()).append("},\n\t  </if>");
+                batchSaveValueSelective.append("\n\t\t  <if test=\"item.").append(javaProperty + " != null").append("\"> ").append("\n\t\t\t #{item.").append(javaProperty)
+                        .append(",jdbcType=").append(pkColumn.getJdbcTypeName()).append("},\n\t\t  </if>");
+
+                saveValue.append("#{").append(javaProperty).append(",jdbcType=").append(pkColumn.getJdbcTypeName()).append("},\n\t");
+                updateSelectiveSQL.append(" \n\t\t<if test=\"").append(javaProperty).append(" != null\">\n\t\t\t");
+                updateSelectiveSQL.append(columnName).append(" = #{").append(javaProperty)
                         .append(",jdbcType=").append(pkColumn.getJdbcTypeName()).append("},\n\t\t</if>");
-                updateSQL.append(columnName).append(" = #{item.").append(javaProperty)
+                updateSQL.append(columnName).append(" = #{").append(javaProperty)
                         .append(",jdbcType=").append(pkColumn.getJdbcTypeName()).append("}, \n\t");
             }
         }
 
         updateSelectiveSQL.append("\n\t</set>\n\t");
+
         saveColumnSelective.append("\n\t</trim>\n\t");
+        batchSaveColumnSelective.append("\n\t\t</trim>\n\t");
+
         saveValueSelective.append("\n\t</trim>");
+        batchSaveValueSelective.append("\n\t\t</trim>").append("</foreach>\n\t");
+
         String columns = columnSQL.substring(0, columnSQL.length() - 1);
         saveColumn = saveColumn.append("insert into ").append(tableName).append(" ( ").append(columns).append(" ) \n\t");
         saveValue.replace(saveValue.lastIndexOf(","), saveValue.lastIndexOf(",") + 1, "");
         saveValue.append(")");
 
-        updateSQL.append("where ").append(pkColumn.getActualColumnName()).append(" = #{item.")
+        updateSQL.append("where ").append(pkColumn.getActualColumnName()).append(" = #{")
                 .append(pkColumn.getJavaProperty()).append(",jdbcType=")
                 .append(pkColumn.getJdbcTypeName()).append("}");
-        updateSelectiveSQL.append("\twhere ").append(pkColumn.getActualColumnName()).append(" = #{item.")
+        updateSelectiveSQL.append("\twhere ").append(pkColumn.getActualColumnName()).append(" = #{")
                 .append(pkColumn.getJavaProperty()).append(",jdbcType=").append(pkColumn.getJdbcTypeName()).append("}");
 
         //创建基础字段名
@@ -265,7 +279,7 @@ public class GeneratorAdapter extends PluginAdapter{
         XmlElement save = new XmlElement("insert");
         save.addAttribute(new Attribute("id", id));
         if (null != pkColumn) {
-            save.addAttribute(new Attribute("keyProperty", "item." + pkColumn.getJavaProperty()));
+            save.addAttribute(new Attribute("keyProperty", pkColumn.getJavaProperty()));
             save.addAttribute(new Attribute("useGeneratedKeys", "true"));
             save.addElement(new TextElement(saveColumn.toString() + saveValue.toString()));
         } else {
@@ -287,12 +301,32 @@ public class GeneratorAdapter extends PluginAdapter{
         XmlElement save = new XmlElement("insert");
         save.addAttribute(new Attribute("id", id));
         if (null != pkColumn) {
-            save.addAttribute(new Attribute("keyProperty", "item." + pkColumn.getJavaProperty()));
+            save.addAttribute(new Attribute("keyProperty", pkColumn.getJavaProperty()));
             save.addAttribute(new Attribute("useGeneratedKeys", "true"));
             save.addElement(new TextElement(saveColumnSelective.toString() + saveValueSelective.toString()));
         } else {
             StringBuilder saveStr = new StringBuilder("")
                     .append(saveColumnSelective.toString() + saveValueSelective.toString());
+
+            save.addElement(new TextElement(saveStr.toString()));
+        }
+        return save;
+    }
+    /**
+     * 批量保存
+     *
+     * @param id
+     * @param pkColumn
+     * @return
+     */
+    private XmlElement createBatchSaveSelective(String id, IntrospectedColumn pkColumn) {
+        XmlElement save = new XmlElement("insert");
+        save.addAttribute(new Attribute("id", id));
+        if (null != pkColumn) {
+            save.addElement(new TextElement(batchSaveColumnSelective.toString() + batchSaveValueSelective.toString()));
+        } else {
+            StringBuilder saveStr = new StringBuilder("")
+                    .append(batchSaveColumnSelective.toString() + batchSaveValueSelective.toString());
 
             save.addElement(new TextElement(saveStr.toString()));
         }
