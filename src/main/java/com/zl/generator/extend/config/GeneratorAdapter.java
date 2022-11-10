@@ -58,8 +58,10 @@ public class GeneratorAdapter extends PluginAdapter{
     public void setProperties(Properties properties) {
         super.setProperties(properties);
         String mappers = this.properties.getProperty("mappers");
-        for (String mapper : mappers.split(",")) {
-            this.mappers.add(mapper);
+        if(mappers!=null) {
+            for (String mapper : mappers.split(",")) {
+                this.mappers.add(mapper);
+            }
         }
         String ignoreFieldsEntity = this.properties.getProperty("ignoreFieldsEntity");
         if (StringUtils.isBlank(ignoreFieldsEntity)) {
@@ -82,9 +84,11 @@ public class GeneratorAdapter extends PluginAdapter{
         // 获取实体类
         FullyQualifiedJavaType entityType = new FullyQualifiedJavaType(introspectedTable.getBaseRecordType());
         // import接口
-        for (String mapper : mappers) {
-            interfaze.addImportedType(new FullyQualifiedJavaType(mapper));
-            interfaze.addSuperInterface(new FullyQualifiedJavaType(mapper + "<" + entityType.getShortName() + ">"));
+        if(mappers!=null) {
+            for (String mapper : mappers) {
+                interfaze.addImportedType(new FullyQualifiedJavaType(mapper));
+                interfaze.addSuperInterface(new FullyQualifiedJavaType(mapper + "<" + entityType.getShortName() + ">"));
+            }
         }
         // import实体类
         interfaze.addImportedType(entityType);
@@ -211,6 +215,9 @@ public class GeneratorAdapter extends PluginAdapter{
      * */
     @Override
     public boolean modelGetterMethodGenerated(Method method, TopLevelClass topLevelClass, IntrospectedColumn introspectedColumn, IntrospectedTable introspectedTable, ModelClassType modelClassType) {
+        if(ignoreFields==null){
+            return true;
+        }
         List<String> collect = ignoreFields.stream().filter(field -> method.getName().endsWith(upperCamelCase(field))).collect(Collectors.toList());
         if(collect!=null&&collect.size()>0){
             return false;
@@ -224,6 +231,9 @@ public class GeneratorAdapter extends PluginAdapter{
      * */
     @Override
     public boolean modelSetterMethodGenerated(Method method, TopLevelClass topLevelClass, IntrospectedColumn introspectedColumn, IntrospectedTable introspectedTable, ModelClassType modelClassType) {
+        if(ignoreFields==null){
+            return true;
+        }
         List<String> collect = ignoreFields.stream().filter(field -> method.getName().endsWith(upperCamelCase(field))).collect(Collectors.toList());
         if(collect!=null&&collect.size()>0){
             return false;
